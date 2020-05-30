@@ -30,14 +30,16 @@ func main() {
 	}
 
 	difficulty := 100000
-	matchExact := false
+	mode := "difficulty"
 	if len(os.Args) > 2 {
-		if len(os.Args[2]) == 6 {
+		if os.Args[2] == "duplicate" {
+			mode = "duplicate"
+		} else if len(os.Args[2]) == 6 {
 			_, err := strconv.Atoi(os.Args[2])
 			if err != nil {
 				usage()
 			}
-			matchExact = true
+			mode = "matchExact"
 		} else {
 			diff, err := strconv.Atoi(os.Args[2])
 			if err != nil {
@@ -51,18 +53,29 @@ func main() {
 	}
 	t := time.Now().UTC()
 	step := 30 * time.Second
+	prev := ""
 	for {
 		code, _ := totp.GenerateCode(secret, t)
-		numCode, _ := strconv.Atoi(code)
-		if (matchExact && code == os.Args[2]) || (!matchExact && numCode < difficulty) {
-			fmt.Printf("code will be %s at %s\n", code, t.Format("2006-01-02 15:04:05 MST"))
-			os.Exit(0)
+		if mode == "duplicate" {
+			if code == prev {
+				prevTime := t.Add(-step)
+				fmt.Printf("code will be %s at %s\n", prev, prevTime.Format("2006-01-02 15:04:05 MST"))
+				fmt.Printf("code will be %s at %s\n", code, t.Format("2006-01-02 15:04:05 MST"))
+				os.Exit(0)
+			}
+			prev = code
+		} else {
+			numCode, _ := strconv.Atoi(code)
+			if (mode == "matchExact" && code == os.Args[2]) || (mode == "difficulty" && numCode < difficulty) {
+				fmt.Printf("code will be %s at %s\n", code, t.Format("2006-01-02 15:04:05 MST"))
+				os.Exit(0)
+			}
 		}
 		t = t.Add(step)
 	}
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: %s <OTP secret|OTP URL> [difficulty (1-6)|six-digit code to match]\n", filepath.Base(os.Args[0]))
+	fmt.Fprintf(os.Stderr, "usage: %s <OTP secret|OTP URL> [difficulty (1-6)|six-digit code to match|\"duplicate\"]\n", filepath.Base(os.Args[0]))
 	os.Exit(1)
 }
